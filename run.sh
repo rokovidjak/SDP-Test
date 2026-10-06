@@ -17,4 +17,4 @@ python -m pip install --quiet -r requirements.txt
 
 echo
 echo "Repo Analysis Tool running at http://localhost:${PORT}"
-exec python -m uvicorn app.main:app --host 127.0.0.1 --port "${PORT}"
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
