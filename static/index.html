@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Analysis Tool</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">▣</span>
+    <div>
+      <h1>Repo Analysis Tool</h1>
+      <p class="sub">git metrics dashboard</p>
+    </div>
+  </div>
+  <div class="repo-bar">
+    <select id="repoSelect" title="Select repository"></select>
+    <button id="btnAdd" class="btn primary">Add repository</button>
+    <button id="btnDelete" class="btn danger ghost" title="Delete the selected repository">Delete</button>
+  </div>
+</header>
+
+<div id="ingestBanner" class="banner hidden">
+  <div class="banner-row">
+    <span id="ingestLabel">Working…</span>
+    <button id="btnCancel" class="btn small">Cancel</button>
+  </div>
+  <div class="progress"><div id="ingestBar" class="progress-fill"></div></div>
+</div>
+<div id="errorBanner" class="banner error hidden"><span id="errorText"></span></div>
+
+<main>
+  <section id="emptyState" class="empty card hidden">
+    <h2>Analyse a git repository</h2>
+    <p>Clone one from a URL, or upload a zip archive that contains the
+       <code>.git</code> directory. Everything is measured locally from a
+       single pass over the commit history.</p>
+    <div class="row center">
+      <button class="btn primary" id="btnEmptyUrl">Clone from URL</button>
+      <button class="btn" id="btnEmptyZip">Upload zip</button>
+    </div>
+  </section>
+
+  <section id="dash" class="hidden">
+    <nav id="crumbs" class="crumbs"></nav>
+
+    <section class="card filters">
+      <div class="fgroup">
+        <label>Time window</label>
+        <div class="row">
+          <select id="preset" title="Quick time window">
+            <option value="">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+          </select>
+          <input type="datetime-local" id="since" title="Since (inclusive)">
+          <span class="muted">→</span>
+          <input type="datetime-local" id="until" title="Until (exclusive)">
+          <button class="btn small" id="btnApplyTime">Apply</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <label>Authors</label>
+        <details id="authorFilterBox" class="dropdown">
+          <summary id="authorFilterSummary">All authors</summary>
+          <div id="authorFilterList" class="dropdown-body"></div>
+        </details>
+      </div>
+      <div class="fgroup grow">
+        <label>Commit set <span class="muted">(hashes, comma / space / newline separated)</span></label>
+        <div class="row">
+          <input id="commitInput" placeholder="e.g. a1b2c3d 9f8e7d6 …">
+          <button class="btn small" id="btnApplyCommits">Apply</button>
+        </div>
+      </div>
+      <button id="btnClearFilters" class="btn ghost small">Clear all</button>
+      <div id="chips" class="chips"></div>
+    </section>
+
+    <section id="kpis" class="kpis"></section>
+
+    <section class="charts-row">
+      <div class="card chart-main">
+        <div class="card-head">
+          <h3>Activity timeline</h3>
+          <div class="row">
+            <span class="muted">scroll / drag to zoom</span>
+            <button class="btn small" id="btnZoomRange" title="Use the visible chart range as the time filter">Use visible range</button>
+          </div>
+        </div>
+        <div id="timeline" class="chart"></div>
+      </div>
+      <div class="card chart-side">
+        <div class="card-head"><h3>Author ownership</h3></div>
+        <div id="ownership" class="chart small"></div>
+      </div>
+    </section>
+
+    <section class="tables-row">
+      <div class="card table-card">
+        <div class="card-head">
+          <h3 id="childrenTitle">Contents</h3>
+          <span class="muted" id="childrenHint">click a row to drill down</span>
+        </div>
+        <div class="table-wrap">
+          <table id="childrenTable">
+            <thead><tr>
+              <th class="sortable" data-metric="name">Name</th>
+              <th class="sortable num" data-metric="added">Added</th>
+              <th class="sortable num" data-metric="removed">Removed</th>
+              <th class="sortable num" data-metric="growth">Growth</th>
+              <th class="sortable num" data-metric="churn">Churn</th>
+              <th class="sortable num" data-metric="modifications">Mods</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card table-card">
+        <div class="card-head">
+          <h3>Commits</h3>
+          <div class="row">
+            <input id="commitSearch" placeholder="Search subject…">
+            <button class="btn small" id="btnSearchCommits">Search</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="commitsTable">
+            <thead><tr>
+              <th>Time</th><th>Commit</th><th>Author</th><th>Subject</th>
+              <th class="num">±</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button id="btnPrevPage" class="btn small">‹ Prev</button>
+          <span id="pageInfo" class="muted"></span>
+          <button id="btnNextPage" class="btn small">Next ›</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card authors-card">
+      <div class="card-head">
+        <h3>Author merging</h3>
+        <div class="row">
+          <span class="muted">select identities, then</span>
+          <select id="mergeTarget" title="Merge selected identities into this author"></select>
+          <button class="btn small primary" id="btnApplyMerge">Merge</button>
+        </div>
+      </div>
+      <p class="muted small-pad">Identities merged via <code>.mailmap</code> are grouped
+        automatically at ingest time. Select any remaining identities (checkboxes) and
+        merge them — every metric updates immediately.</p>
+      <div id="authorsList"></div>
+    </section>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box card">
+    <h3>Add repository</h3>
+    <label>Clone URL</label>
+    <div class="row">
+      <input id="urlInput" placeholder="https://github.com/user/repo.git">
+      <button class="btn primary" id="btnClone">Clone</button>
+    </div>
+    <div class="sep"></div>
+    <label>Or upload a zip archive (must contain <code>.git</code>)</label>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".zip">
+      <button class="btn" id="btnUpload">Upload</button>
+    </div>
+    <div class="row end"><button class="btn ghost" id="btnCloseModal">Close</button></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="/static/vendor/echarts.min.js"></script>
+<script src="/static/charts.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
