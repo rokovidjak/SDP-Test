@@ -2,10 +2,16 @@
 (function () {
   "use strict";
 
-  const AXIS = "#8b98a9";
-  const GRID = "#273141";
-  const PALETTE = ["#4f8cff", "#7cc4ff", "#3fb950", "#d29922", "#f85149",
-                   "#a371f7", "#39c5cf", "#db61a2", "#e3b341", "#56d4dd"];
+  const AXIS = "#64748b";
+  const GRID = "#e2e8f0";
+  const TIP = {
+    backgroundColor: "#ffffff",
+    borderColor: "#e3e9f0",
+    textStyle: { color: "#0f172a", fontSize: 12 },
+    extraCssText: "box-shadow:0 18px 44px -18px rgba(15,23,42,.28);border-radius:10px;padding:8px 12px;",
+  };
+  const PALETTE = ["#0891b2", "#14b8a6", "#6366f1", "#0ea5e9", "#8b5cf6",
+                   "#22d3ee", "#f59e0b", "#ec4899", "#10b981", "#94a3b8"];
 
   let timelineChart = null;
   let ownershipChart = null;
@@ -32,10 +38,8 @@
       animationDuration: 300,
       grid: { left: 62, right: 16, top: 28, bottom: 50 },
       tooltip: {
+        ...TIP,
         trigger: "axis",
-        backgroundColor: "#1b232e",
-        borderColor: GRID,
-        textStyle: { color: "#e6edf3", fontSize: 12 },
         formatter: function (params) {
           if (!params || !params.length) return "";
           const ts = params[0].value[0];
@@ -60,26 +64,26 @@
       yAxis: {
         type: "value",
         axisLabel: { color: AXIS, formatter: (v) => Math.abs(v).toLocaleString("en-US") },
-        splitLine: { lineStyle: { color: "rgba(39,49,65,.6)" } },
+        splitLine: { lineStyle: { color: "rgba(226,232,240,.9)" } },
       },
       dataZoom: [
         { type: "inside", xAxisIndex: 0 },
         {
           type: "slider", xAxisIndex: 0, height: 20, bottom: 8,
-          borderColor: GRID, backgroundColor: "rgba(27,35,46,.6)",
-          fillerColor: "rgba(79,140,255,.18)",
-          handleStyle: { color: "#4f8cff" },
+          borderColor: GRID, backgroundColor: "rgba(248,250,252,.9)",
+          fillerColor: "rgba(6,182,212,.14)",
+          handleStyle: { color: "#06b6d4" },
           textStyle: { color: AXIS },
         },
       ],
       series: [
         {
           name: "Added", type: "bar", data: added, stack: "a",
-          itemStyle: { color: "#3fb950" }, barMaxWidth: 14,
+          itemStyle: { color: "#14b8a6" }, barMaxWidth: 14,
         },
         {
           name: "Removed", type: "bar", data: removed, stack: "a",
-          itemStyle: { color: "#f85149" }, barMaxWidth: 14,
+          itemStyle: { color: "#f43f5e" }, barMaxWidth: 14,
         },
       ],
     }, true);
@@ -119,9 +123,7 @@
       animationDuration: 300,
       color: PALETTE,
       tooltip: {
-        backgroundColor: "#1b232e",
-        borderColor: GRID,
-        textStyle: { color: "#e6edf3", fontSize: 12 },
+        ...TIP,
         formatter: (p) => `${p.marker} <b>${p.name}</b><br>` +
           `churn ${Number(p.value).toLocaleString("en-US")}<br>` +
           `ownership ${(p.data.ownership * 100).toFixed(1)}%`,
@@ -135,9 +137,9 @@
         radius: ["48%", "76%"],
         center: ["50%", "44%"],
         avoidLabelOverlap: true,
-        itemStyle: { borderColor: "#151b23", borderWidth: 2 },
+        itemStyle: { borderColor: "#ffffff", borderWidth: 2 },
         label: { show: false },
-        emphasis: { label: { show: true, color: "#e6edf3", fontSize: 12, fontWeight: 600 } },
+        emphasis: { label: { show: true, color: "#0f172a", fontSize: 12, fontWeight: 600 } },
         data,
       }],
     }, true);
@@ -163,7 +165,7 @@
       const raw = n[metric] == null ? 0 : n[metric];
       const churn = n.churn || 0;
       const ratio = churn > 0 ? Math.max(-1, Math.min(1, n.growth / churn)) : 0;
-      const rgb = ratio < 0 ? "248,81,73" : "63,185,80";
+      const rgb = ratio < 0 ? "244,63,94" : "16,185,129";
       const alpha = 0.20 + 0.55 * Math.abs(ratio);
       return {
         name: n.name + (n.kind === "dir" ? "/" : ""),
@@ -181,16 +183,14 @@
     chart.setOption({
       animationDuration: 300,
       tooltip: {
-        backgroundColor: "#1b232e",
-        borderColor: GRID,
-        textStyle: { color: "#e6edf3", fontSize: 12 },
+        ...TIP,
         formatter: (p) => {
           const d = p.data;
           return `<b>${d.name}</b><br>` +
             `added ${fmtN(d.added)} · removed ${fmtN(d.removed)}<br>` +
             `growth ${signN(d.growth)} · churn ${fmtN(d.churn)}<br>` +
             (d.modifications == null ? "" : `modifications ${fmtN(d.modifications)}<br>`) +
-            `<span style="color:#8b98a9">click to open</span>`;
+            `<span style="color:#64748b">click to open</span>`;
         },
       },
       series: [{
@@ -200,13 +200,13 @@
         breadcrumb: { show: false },
         label: {
           show: true,
-          color: "#e6edf3",
+          color: "#0f172a",
           fontSize: 11,
           formatter: (p) => (p.name.length > 26 ? p.name.slice(0, 25) + "…" : p.name),
         },
         upperLabel: { show: false },
-        itemStyle: { borderColor: "#151b23", borderWidth: 1, gapWidth: 2 },
-        emphasis: { itemStyle: { borderColor: "#4f8cff", borderWidth: 2 } },
+        itemStyle: { borderColor: "#ffffff", borderWidth: 1, gapWidth: 2 },
+        emphasis: { itemStyle: { borderColor: "#0891b2", borderWidth: 2 } },
         data,
       }],
     }, true);
