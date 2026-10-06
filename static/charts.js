@@ -9,6 +9,7 @@
 
   let timelineChart = null;
   let ownershipChart = null;
+  let treemapChart = null;
 
   function el(id) { return document.getElementById(id); }
 
@@ -146,11 +147,83 @@
     });
   }
 
+  function ensureTreemap() {
+    if (!treemapChart && el("treemap")) treemapChart = echarts.init(el("treemap"));
+    return treemapChart;
+  }
+
+  /* Drillable project map: area = metric, colour = growth (green) vs
+     decline (red), click a tile to descend into that child object. */
+  function setTreemap(nodes, metric, onSelect) {
+    const chart = ensureTreemap();
+    if (!chart || !nodes || !nodes.length) return;
+    const fmtN = (v) => Number(v || 0).toLocaleString("en-US");
+    const signN = (v) => (v > 0 ? "+" : "") + fmtN(v);
+    const data = nodes.map((n) => {
+      const raw = n[metric] == null ? 0 : n[metric];
+      const churn = n.churn || 0;
+      const ratio = churn > 0 ? Math.max(-1, Math.min(1, n.growth / churn)) : 0;
+      const rgb = ratio < 0 ? "248,81,73" : "63,185,80";
+      const alpha = 0.20 + 0.55 * Math.abs(ratio);
+      return {
+        name: n.name + (n.kind === "dir" ? "/" : ""),
+        value: Math.max(Math.abs(raw), 0.001),
+        objKind: n.kind,
+        objPath: n.path,
+        added: n.added,
+        removed: n.removed,
+        growth: n.growth,
+        churn: n.churn,
+        modifications: n.modifications,
+        itemStyle: { color: `rgba(${rgb},${alpha.toFixed(3)})` },
+      };
+    });
+    chart.setOption({
+      animationDuration: 300,
+      tooltip: {
+        backgroundColor: "#1b232e",
+        borderColor: GRID,
+        textStyle: { color: "#e6edf3", fontSize: 12 },
+        formatter: (p) => {
+          const d = p.data;
+          return `<b>${d.name}</b><br>` +
+            `added ${fmtN(d.added)} · removed ${fmtN(d.removed)}<br>` +
+            `growth ${signN(d.growth)} · churn ${fmtN(d.churn)}<br>` +
+            (d.modifications == null ? "" : `modifications ${fmtN(d.modifications)}<br>`) +
+            `<span style="color:#8b98a9">click to open</span>`;
+        },
+      },
+      series: [{
+        type: "treemap",
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        label: {
+          show: true,
+          color: "#e6edf3",
+          fontSize: 11,
+          formatter: (p) => (p.name.length > 26 ? p.name.slice(0, 25) + "…" : p.name),
+        },
+        upperLabel: { show: false },
+        itemStyle: { borderColor: "#151b23", borderWidth: 1, gapWidth: 2 },
+        emphasis: { itemStyle: { borderColor: "#4f8cff", borderWidth: 2 } },
+        data,
+      }],
+    }, true);
+    chart.off("click");
+    chart.on("click", (p) => {
+      if (onSelect && p && p.data && p.data.objPath != null) {
+        onSelect({ kind: p.data.objKind, path: p.data.objPath });
+      }
+    });
+  }
+
   function resize() {
     if (timelineChart) timelineChart.resize();
     if (ownershipChart) ownershipChart.resize();
+    if (treemapChart) treemapChart.resize();
   }
   window.addEventListener("resize", resize);
 
-  window.Charts = { setTimeline, visibleRange, setOwnership, resize };
+  window.Charts = { setTimeline, visibleRange, setOwnership, setTreemap, resize };
 })();

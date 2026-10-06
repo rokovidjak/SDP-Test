@@ -191,6 +191,8 @@ main { padding: 16px 20px 60px; max-width: 1560px; margin: 0 auto; }
 .chart-main, .chart-side { overflow: hidden; }
 .chart { height: 300px; }
 .chart.small { height: 300px; }
+.treemap-card { margin-top: 16px; }
+.treemap { height: 380px; }
 
 /* tables */
 

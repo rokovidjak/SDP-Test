@@ -69,8 +69,12 @@ def commit_set_size(conn, repo_id, f: Filters) -> int:
     ).fetchone()["n"]
 
 
-def object_metrics(conn, repo_id, kind, path, f: Filters) -> dict:
-    """Added / removed / growth / churn / modifications / frequencies for one object."""
+def object_metrics(conn, repo_id, kind, path, f: Filters, size=None) -> dict:
+    """Added / removed / growth / churn / modifications / frequencies for one object.
+
+    ``size`` may be passed when the caller already knows |H| (batch callers),
+    to avoid recomputing the count for every object.
+    """
     cwhere, cparams = f.commit_where(repo_id)
     owhere, oparams = object_where("ch.path", kind, path)
     row = conn.execute(
@@ -83,7 +87,8 @@ def object_metrics(conn, repo_id, kind, path, f: Filters) -> dict:
             WHERE {cwhere} AND {owhere}""",
         [*cparams, *oparams],
     ).fetchone()
-    size = commit_set_size(conn, repo_id, f)
+    if size is None:
+        size = commit_set_size(conn, repo_id, f)
     added, removed = row["added"], row["removed"]
     mods = int(row["modifications"] or 0)
     growth, churn = added - removed, added + removed
@@ -209,8 +214,9 @@ def children(conn, repo_id, kind, path, f: Filters, metric: str = "churn",
         n["modifications"] = None
 
     lst.sort(key=lambda n: n["churn"], reverse=True)
+    size = commit_set_size(conn, repo_id, f)
     for n in lst[:modifications_for]:
-        m = object_metrics(conn, repo_id, n["kind"], n["path"], f)
+        m = object_metrics(conn, repo_id, n["kind"], n["path"], f, size=size)
         n["modifications"] = m["modifications"]
 
     if metric in ("added", "removed", "growth", "churn", "modifications"):

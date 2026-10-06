@@ -129,23 +129,33 @@ def delete_repo(repo_id: int, conn=Depends(get_conn)):
 def list_authors(repo_id: int, conn=Depends(get_conn)):
     _get_repo_or_404(conn, repo_id)
     rows = conn.execute(
-        """SELECT a.id, a.name, a.email, a.synthetic,
-                  (SELECT COUNT(*) FROM commits c WHERE c.author_id = a.id) AS commit_count
-           FROM authors a WHERE a.repo_id = ? ORDER BY a.id""",
+        "SELECT id, name, email, synthetic FROM authors WHERE repo_id = ? ORDER BY id",
         (repo_id,),
     ).fetchall()
+    # One aggregate for all authors instead of a per-author correlated count
+    # (matters on large repos with thousands of identities).
+    counts = {
+        r["author_id"]: r["n"]
+        for r in conn.execute(
+            "SELECT author_id, COUNT(*) AS n FROM commits"
+            " WHERE repo_id = ? GROUP BY author_id",
+            (repo_id,),
+        )
+    }
+    by_id = {r["id"]: r for r in rows}
     rmap = store.author_root_map(conn, repo_id)
     merged = {}
     for r in rows:
         root = rmap[r["id"]]
+        n = counts.get(r["id"], 0)
         m = merged.setdefault(root, {"id": root, "commit_count": 0, "identities": []})
-        m["commit_count"] += r["commit_count"]
+        m["commit_count"] += n
         m["identities"].append({
             "id": r["id"], "name": r["name"], "email": r["email"],
-            "synthetic": bool(r["synthetic"]), "commit_count": r["commit_count"],
+            "synthetic": bool(r["synthetic"]), "commit_count": n,
         })
     for m in merged.values():
-        base = next((r for r in rows if r["id"] == m["id"]), None)
+        base = by_id.get(m["id"])
         m["name"] = base["name"] if base else "(merged)"
         m["email"] = base["email"] if base else ""
         m["identities"].sort(key=lambda x: -x["commit_count"])

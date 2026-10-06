@@ -144,6 +144,7 @@
     state.repo = state.repos.find((r) => r.id === id) || null;
     localStorage.setItem("rat.repoId", String(id));
     $("repoSelect").value = String(id);
+    history.replaceState({ kind: state.kind, path: state.path }, "");
 
     if (state.repo && state.repo.status === "ready") {
       hideBanners();
@@ -250,6 +251,24 @@
     renderChips();
   }
 
+  // Object navigation: one entry point for breadcrumb, table and treemap,
+  // with browser back/forward support for drilling in and out.
+  function openObject(kind, path) {
+    state.kind = kind;
+    state.path = path;
+    history.pushState({ kind, path }, "");
+    loadAll().catch((e) => toast(e.message, "error"));
+  }
+
+  window.addEventListener("popstate", (ev) => {
+    const st = ev.state;
+    if (st && st.kind != null) {
+      state.kind = st.kind;
+      state.path = st.path;
+      loadAll().catch((e) => toast(e.message, "error"));
+    }
+  });
+
   // ----------------------------------------------------------- rendering
 
   function renderBreadcrumb() {
@@ -261,11 +280,7 @@
     const addSep = () => nav.appendChild(el("span", "sep-a", "/"));
     const addLink = (label, kind, path) => {
       const a = el("a", null, label);
-      a.addEventListener("click", () => {
-        state.kind = kind;
-        state.path = path;
-        loadAll().catch((e) => toast(e.message, "error"));
-      });
+      a.addEventListener("click", () => openObject(kind, path));
       nav.appendChild(a);
     };
     const addCurrent = (label) => nav.appendChild(el("span", "current", label));
@@ -318,6 +333,16 @@
       th.classList.toggle("sorted", th.dataset.metric === state.childMetric);
     });
 
+    // Project map: same rows and metric as the table, click a tile to drill in.
+    const panel = $("treemapPanel");
+    const showMap = state.childRows.length > 0;
+    panel.classList.toggle("hidden", !showMap);
+    if (showMap) {
+      const label = state.path ? state.path + "/" : (state.repo ? state.repo.name : "repository");
+      $("treemapTitle").textContent = "Project map — " + label + " · by " + state.childMetric;
+      Charts.setTreemap(state.childRows, state.childMetric, (t) => openObject(t.kind, t.path));
+    }
+
     if (!state.childRows.length) {
       const tr = el("tr");
       const td = el("td", "muted", state.kind === "file"
@@ -347,11 +372,7 @@
       tr.appendChild(g);
       tr.appendChild(el("td", "num", fmt(row.churn)));
       tr.appendChild(el("td", "num", row.modifications == null ? "–" : fmt(row.modifications)));
-      tr.addEventListener("click", () => {
-        state.kind = row.kind;
-        state.path = row.path;
-        loadAll().catch((e) => toast(e.message, "error"));
-      });
+      tr.addEventListener("click", () => openObject(row.kind, row.path));
       tbody.appendChild(tr);
     }
   }
